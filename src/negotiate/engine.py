@@ -6,7 +6,9 @@ no database, no framework dependencies.
 
 import random
 
-MAX_ROUNDS = 5
+GUARANTEED_ROUNDS = 4
+END_PROBABILITY = 0.3
+HARD_MAX_ROUNDS = 15
 NO_DEAL_PENALTY = -0.5
 RESOURCE_TYPES = ["books", "hats", "balls"]
 TARGET_VALUE = 100
@@ -22,7 +24,7 @@ RESOURCE POOL: {pool_str}
 YOUR PRIVATE VALUATIONS: {val_str}
 
 TURN STRUCTURE:
-- There are 5 rounds. Each round, Player A acts first, then Player B.
+- Each round, Player A acts first, then Player B.
 - On your turn, use the negotiate tool to choose one action:
     propose — offer a specific split of ALL resources
     accept  — agree to the most recent proposal from the other player
@@ -30,9 +32,14 @@ TURN STRUCTURE:
 - You may only accept if the other player has made a proposal.
 - Both players can see the full negotiation history, including all proposals, actions, and messages from every prior turn.
 
+DEADLINE:
+- Rounds 1–4 are guaranteed.
+- Starting in round 5, there is a 30% chance the game ends after each round with no deal. You will NOT know in advance which round is the last.
+- Every round from 5 onward could be your final chance to make a deal.
+
 SCORING:
 - Deal reached: your score = sum(your_valuation x quantity_you_receive) for each resource, divided by the maximum you could score if you received everything. Range: 0.0 to 1.0.
-- No deal after 5 rounds: both players score -0.5. This is the worst possible outcome — any deal that gives you even a single point beats no deal.
+- No deal (game ends without agreement): both players score -0.5. This is the worst possible outcome — any deal that gives you even a single point beats no deal.
 
 RULES:
 - my_share + their_share must exactly equal the pool for every resource.
@@ -159,9 +166,10 @@ def build_turn_prompt(
 ) -> str:
     parts = []
 
-    if round_number == MAX_ROUNDS:
+    if round_number > GUARANTEED_ROUNDS:
         parts.append(
-            "FINAL ROUND — if no deal is reached this round, both players score -0.5."
+            f"OVERTIME (round {round_number}) — The game could end after this round. "
+            "If no deal is reached before the game ends, both players score -0.5."
         )
 
     if history:
@@ -194,6 +202,6 @@ def build_turn_prompt(
         parts.append("")
 
     parts.append(
-        f"Round {round_number}/{MAX_ROUNDS} — Your turn (Player {role}). Use the negotiate tool."
+        f"Round {round_number} — Your turn (Player {role}). Use the negotiate tool."
     )
     return "\n".join(parts)

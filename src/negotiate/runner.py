@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import random
 import statistics
 import time
 from typing import Optional, Callable
@@ -9,7 +10,9 @@ from typing import Optional, Callable
 from google import genai
 
 from .engine import (
-    MAX_ROUNDS,
+    END_PROBABILITY,
+    GUARANTEED_ROUNDS,
+    HARD_MAX_ROUNDS,
     NO_DEAL_PENALTY,
     build_system_prompt,
     build_turn_prompt,
@@ -48,15 +51,24 @@ async def run_game(
         sys_b = build_system_prompt("B", pool, vals_b, custom_strategy=user_prompt)
         user_role = "B"
 
+    # Pre-determine the stochastic deadline from the seed.
+    # Rounds 1-4 are guaranteed; from round 5 onward, 30% chance to end each round.
+    deadline_rng = random.Random(scenario["seed"] * 31 + 777)
+    effective_max_rounds = HARD_MAX_ROUNDS
+    for r in range(GUARANTEED_ROUNDS + 1, HARD_MAX_ROUNDS + 1):
+        if deadline_rng.random() < END_PROBABILITY:
+            effective_max_rounds = r
+            break
+
     history: list[dict] = []
     deal_reached = False
-    final_round = MAX_ROUNDS
+    final_round = effective_max_rounds
     user_score = NO_DEAL_PENALTY
     baseline_score = NO_DEAL_PENALTY
     last_proposal: Optional[dict] = None
     last_proposer: Optional[str] = None
 
-    for round_num in range(1, MAX_ROUNDS + 1):
+    for round_num in range(1, effective_max_rounds + 1):
         # -- Player A turn --
         turn_prompt_a = build_turn_prompt(history, "A", round_num, pool)
         result_a = await call_gemini(client, sys_a, turn_prompt_a, semaphore)
