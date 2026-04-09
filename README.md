@@ -1,6 +1,6 @@
 # Negotiation Challenge
 
-Local test harness for the [Optimization Arena](https://arena.paradigm.xyz) negotiation challenge.
+Local test harness for the [Optimization Arena negotiation challenge](https://www.optimizationarena.com/negotiation).
 
 Write a strategy prompt that guides an AI agent through multi-round resource negotiations. Your prompt is injected into the system instructions of a Gemini model that negotiates on your behalf against a baseline opponent. The goal: maximize your score across 10 games.
 
