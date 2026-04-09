@@ -27,6 +27,7 @@ TURN STRUCTURE:
     accept  — agree to the most recent proposal from the other player
     reject  — decline the most recent proposal
 - You may only accept if the other player has made a proposal.
+- Both players can see the full negotiation history, including all proposals, actions, and messages from every prior turn.
 
 SCORING:
 - Deal reached: your score = sum(your_valuation x quantity_you_receive) for each resource, divided by the maximum you could score if you received everything. Range: 0.0 to 1.0.
