@@ -26,17 +26,27 @@ async def run_game(
     scenario: dict,
     user_prompt: str,
     semaphore: asyncio.Semaphore,
+    user_goes_first: bool = True,
 ) -> dict:
     """Run one full negotiation game.
 
-    Player A = user (with custom strategy), Player B = baseline (no custom strategy).
+    Player A always moves first. When user_goes_first=True the user is A;
+    when False the user is B and the baseline moves first.
     """
     pool = scenario["pool"]
-    vals_a = scenario["valuations_a"]
-    vals_b = scenario["valuations_b"]
+    vals_user = scenario["valuations_a"]
+    vals_baseline = scenario["valuations_b"]
 
-    sys_a = build_system_prompt("A", pool, vals_a, custom_strategy=user_prompt)
-    sys_b = build_system_prompt("B", pool, vals_b)
+    if user_goes_first:
+        vals_a, vals_b = vals_user, vals_baseline
+        sys_a = build_system_prompt("A", pool, vals_a, custom_strategy=user_prompt)
+        sys_b = build_system_prompt("B", pool, vals_b)
+        user_role = "A"
+    else:
+        vals_a, vals_b = vals_baseline, vals_user
+        sys_a = build_system_prompt("A", pool, vals_a)
+        sys_b = build_system_prompt("B", pool, vals_b, custom_strategy=user_prompt)
+        user_role = "B"
 
     history: list[dict] = []
     deal_reached = False
@@ -91,10 +101,6 @@ async def run_game(
         if action_a == "accept" and last_proposal is not None and last_proposer == "B":
             a_split = last_proposal["their_share"]
             b_split = last_proposal["my_share"]
-            max_a = max_possible(vals_a, pool)
-            max_b = max_possible(vals_b, pool)
-            user_score = score_split(vals_a, a_split) / max_a if max_a > 0 else 0.0
-            baseline_score = score_split(vals_b, b_split) / max_b if max_b > 0 else 0.0
             deal_reached = True
             final_round = round_num
             break
@@ -143,13 +149,18 @@ async def run_game(
         if action_b == "accept" and last_proposal is not None and last_proposer == "A":
             a_split = last_proposal["my_share"]
             b_split = last_proposal["their_share"]
-            max_a = max_possible(vals_a, pool)
-            max_b = max_possible(vals_b, pool)
-            user_score = score_split(vals_a, a_split) / max_a if max_a > 0 else 0.0
-            baseline_score = score_split(vals_b, b_split) / max_b if max_b > 0 else 0.0
             deal_reached = True
             final_round = round_num
             break
+
+    # Map A/B splits back to user/baseline based on role
+    if deal_reached:
+        user_split = a_split if user_role == "A" else b_split
+        baseline_split = b_split if user_role == "A" else a_split
+        max_user = max_possible(vals_user, pool)
+        max_baseline = max_possible(vals_baseline, pool)
+        user_score = score_split(vals_user, user_split) / max_user if max_user > 0 else 0.0
+        baseline_score = score_split(vals_baseline, baseline_split) / max_baseline if max_baseline > 0 else 0.0
 
     return {
         "scenario_seed": scenario["seed"],
@@ -159,8 +170,9 @@ async def run_game(
         "baseline_score": round(baseline_score, 4),
         "turns": history,
         "pool": pool,
-        "valuations_user": vals_a,
-        "valuations_baseline": vals_b,
+        "valuations_user": vals_user,
+        "valuations_baseline": vals_baseline,
+        "user_role": user_role,
     }
 
 
@@ -194,9 +206,13 @@ async def run_evaluation(
 
     scenarios = [generate_scenario(_seed_for(i)) for i in range(num_games)]
 
+    # Alternate who goes first: even games = user is A, odd = user is B
     tasks = [
-        asyncio.ensure_future(run_game(client, scenario, prompt, semaphore))
-        for scenario in scenarios
+        asyncio.ensure_future(
+            run_game(client, scenario, prompt, semaphore,
+                     user_goes_first=(i % 2 == 0))
+        )
+        for i, scenario in enumerate(scenarios)
     ]
 
     results = []

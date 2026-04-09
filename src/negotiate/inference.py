@@ -99,8 +99,7 @@ async def call_gemini(
         for attempt in range(3):
             try:
                 response = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        client.models.generate_content,
+                    client.aio.models.generate_content(
                         model=GEMINI_MODEL,
                         contents=user_message,
                         config=genai.types.GenerateContentConfig(

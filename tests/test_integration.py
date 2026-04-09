@@ -46,6 +46,7 @@ def test_single_game():
     assert "pool" in game
     assert "valuations_user" in game
     assert "valuations_baseline" in game
+    assert game["user_role"] in ("A", "B")
 
     # Pool constraints
     for r in RESOURCE_TYPES:
@@ -80,21 +81,27 @@ def test_single_game():
 
 @needs_api_key
 def test_multi_game_stats():
-    """Run 3 games and verify summary stats are computed correctly."""
+    """Run 4 games and verify summary stats + role alternation."""
     result = asyncio.run(
         run_evaluation(
             prompt="Be cooperative. Propose fair splits. Accept reasonable offers.",
-            num_games=3,
+            num_games=4,
             seed=99,
         )
     )
 
-    assert len(result["games"]) == 3
+    assert len(result["games"]) == 4
     stats = result["stats"]
 
-    assert stats["games_played"] == 3
-    assert 0 <= stats["deals_reached"] <= 3
-    assert stats["deal_rate"] == round(stats["deals_reached"] / 3, 2)
+    # Verify roles alternate (even=A, odd=B) — sort by seed to recover original order
+    games_by_seed = sorted(result["games"], key=lambda g: g["scenario_seed"])
+    roles = [g["user_role"] for g in games_by_seed]
+    # At least one A and one B should be present in 4 games
+    assert "A" in roles and "B" in roles
+
+    assert stats["games_played"] == 4
+    assert 0 <= stats["deals_reached"] <= 4
+    assert stats["deal_rate"] == round(stats["deals_reached"] / 4, 2)
     assert stats["min"] <= stats["mean"] <= stats["max"]
     assert stats["min"] <= stats["median"] <= stats["max"]
     assert stats["std"] >= 0.0

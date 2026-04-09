@@ -45,17 +45,21 @@ def _render_game(game: dict, index: int, show_reasoning: bool = False):
     val_u_str = ", ".join(f"{k}={v}" for k, v in vals_u.items())
     val_b_str = ", ".join(f"{k}={v}" for k, v in vals_b.items())
 
+    user_role = game.get("user_role", "A")
     outcome = "[green]DEAL[/green]" if game["deal_reached"] else "[red]NO DEAL[/red]"
     header = (
-        f"Game {index + 1}  |  {outcome} round {game['final_round']}/{MAX_ROUNDS}  |  "
+        f"Game {index + 1} (You={user_role})  |  {outcome} round {game['final_round']}/{MAX_ROUNDS}  |  "
         f"You: {game['user_score']:.2f}  Baseline: {game['baseline_score']:.2f}\n"
         f"Pool: {pool_str}\n"
         f"Your vals: {val_u_str}  |  Baseline vals: {val_b_str}"
     )
 
+    user_role = game.get("user_role", "A")
+
     lines = []
     for turn in game["turns"]:
-        player_label = "You (A)" if turn["player"] == "A" else "Opp (B)"
+        is_user = turn["player"] == user_role
+        player_label = f"You ({turn['player']})" if is_user else f"Opp ({turn['player']})"
         style = _action_style(turn["action"])
 
         line = f"  R{turn['round']} [{style}]{player_label} {turn['action'].upper()}[/{style}]"
@@ -139,8 +143,9 @@ def test(prompt, games, seed, verbose, reasoning, save_path, concurrency):
     def on_progress(completed, total, game_result):
         score = game_result["user_score"]
         deal = "deal" if game_result["deal_reached"] else "no deal"
+        role = game_result.get("user_role", "A")
         console.print(
-            f"  [{completed}/{total}] score={score:.2f} ({deal})",
+            f"  [{completed}/{total}] score={score:.2f} ({deal}, role={role})",
             highlight=False,
         )
 
