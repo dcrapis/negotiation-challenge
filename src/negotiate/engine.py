@@ -10,6 +10,7 @@ MAX_ROUNDS = 5
 NO_DEAL_PENALTY = -0.5
 RESOURCE_TYPES = ["books", "hats", "balls"]
 TARGET_VALUE = 100
+MAX_VALUATION = 12
 
 RULES_PREAMBLE = """\
 You are Player {role} in a resource negotiation game against one other player.
@@ -44,7 +45,8 @@ RULES:
 def _random_valuations_constrained(rng: random.Random, pool: dict) -> dict | None:
     """Generate valuations where sum(val[r] * pool[r]) == TARGET_VALUE.
 
-    All valuations >= 1.  Returns None if no valid assignment exists.
+    All valuations >= 1 and <= MAX_VALUATION.  Returns None if no valid
+    assignment exists.
     """
     vals = {r: 1 for r in RESOURCE_TYPES}
     base_total = sum(pool[r] for r in RESOURCE_TYPES)
@@ -59,6 +61,7 @@ def _random_valuations_constrained(rng: random.Random, pool: dict) -> dict | Non
         rng.shuffle(resources)
         for r in resources[:-1]:
             max_add = left // pool[r] if pool[r] > 0 else 0
+            max_add = min(max_add, MAX_VALUATION - 1)
             if max_add > 0:
                 add = rng.randint(0, max_add)
                 test[r] += add
@@ -66,6 +69,8 @@ def _random_valuations_constrained(rng: random.Random, pool: dict) -> dict | Non
         last = resources[-1]
         if pool[last] > 0 and left % pool[last] == 0:
             test[last] += left // pool[last]
+            if test[last] > MAX_VALUATION:
+                continue
             total = sum(test[r] * pool[r] for r in RESOURCE_TYPES)
             if total == TARGET_VALUE:
                 return test
@@ -84,7 +89,7 @@ def generate_scenario(seed: int) -> dict:
     rng = random.Random(seed)
 
     for _ in range(1000):
-        pool = {r: rng.randint(1, 10) for r in RESOURCE_TYPES}
+        pool = {r: rng.randint(3, 15) for r in RESOURCE_TYPES}
         if sum(pool[r] for r in RESOURCE_TYPES) > TARGET_VALUE:
             continue
 
