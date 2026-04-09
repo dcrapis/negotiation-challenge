@@ -170,7 +170,6 @@ def build_turn_prompt(
     role: str,
     round_number: int,
     pool: dict,
-    strategy: str | None = None,
 ) -> str:
     parts = []
 
@@ -212,6 +211,4 @@ def build_turn_prompt(
     parts.append(
         f"Round {round_number} — Your turn (Player {role}). Use the negotiate tool."
     )
-    if strategy:
-        parts.append(f"\nYOUR STRATEGY (follow closely):\n{strategy}")
     return "\n".join(parts)
