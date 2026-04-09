@@ -164,7 +164,7 @@ class TestBuildSystemPrompt:
     def test_includes_custom_strategy(self):
         s = generate_scenario(1)
         prompt = build_system_prompt("A", s["pool"], s["valuations_a"], custom_strategy="Be greedy.")
-        assert "ADDITIONAL STRATEGY INSTRUCTIONS" in prompt
+        assert "YOUR STRATEGY" in prompt
         assert "Be greedy." in prompt
 
     def test_no_strategy_section_when_none(self):

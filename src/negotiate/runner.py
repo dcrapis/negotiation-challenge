@@ -42,14 +42,15 @@ async def run_game(
 
     if user_goes_first:
         vals_a, vals_b = vals_user, vals_baseline
-        sys_a = build_system_prompt("A", pool, vals_a, custom_strategy=user_prompt)
-        sys_b = build_system_prompt("B", pool, vals_b)
+        strategy_a, strategy_b = user_prompt, None
         user_role = "A"
     else:
         vals_a, vals_b = vals_baseline, vals_user
-        sys_a = build_system_prompt("A", pool, vals_a)
-        sys_b = build_system_prompt("B", pool, vals_b, custom_strategy=user_prompt)
+        strategy_a, strategy_b = None, user_prompt
         user_role = "B"
+
+    sys_a = build_system_prompt("A", pool, vals_a, custom_strategy=strategy_a)
+    sys_b = build_system_prompt("B", pool, vals_b, custom_strategy=strategy_b)
 
     # Pre-determine the stochastic deadline from the seed.
     # Rounds 1-4 are guaranteed; from round 5 onward, 30% chance to end each round.
@@ -70,7 +71,7 @@ async def run_game(
 
     for round_num in range(1, effective_max_rounds + 1):
         # -- Player A turn --
-        turn_prompt_a = build_turn_prompt(history, "A", round_num, pool)
+        turn_prompt_a = build_turn_prompt(history, "A", round_num, pool, strategy=strategy_a)
         result_a = await call_gemini(client, sys_a, turn_prompt_a, semaphore)
 
         if result_a is None:
@@ -118,7 +119,7 @@ async def run_game(
             break
 
         # -- Player B turn --
-        turn_prompt_b = build_turn_prompt(history, "B", round_num, pool)
+        turn_prompt_b = build_turn_prompt(history, "B", round_num, pool, strategy=strategy_b)
         result_b = await call_gemini(client, sys_b, turn_prompt_b, semaphore)
 
         if result_b is None:
