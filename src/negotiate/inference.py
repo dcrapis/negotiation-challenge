@@ -1,7 +1,14 @@
 """Gemini API integration for the negotiation challenge.
 
-Mirrors the production behavior: function-calling with the `negotiate` tool,
-native thinking for reasoning, retry on failure.
+Mirrors the production behavior: function-calling with the `negotiate` tool.
+
+Note: thinking_config is intentionally omitted. Combining Gemini's thinking
+mode with function calling triggers a known model-side bug where the API
+returns FinishReason.MALFORMED_FUNCTION_CALL — the model attempts a tool call
+but produces invalid JSON. This is not an SDK or network issue; it is tracked
+upstream as googleapis/python-genai#1120 (open since Jul 2025, p2/unfixed).
+Disabling thinking eliminates these failures entirely and also reduces
+per-call latency by ~3-6x.
 """
 
 import asyncio
@@ -96,58 +103,59 @@ async def call_gemini(
     """
     negotiate_tool, tool_config = _get_tool_and_config()
     async with semaphore:
-        for attempt in range(3):
-            try:
-                response = await asyncio.wait_for(
-                    client.aio.models.generate_content(
-                        model=GEMINI_MODEL,
-                        contents=user_message,
-                        config=genai.types.GenerateContentConfig(
-                            system_instruction=system_prompt,
-                            tools=[negotiate_tool],
-                            tool_config=tool_config,
-                            temperature=0.7,
-                            max_output_tokens=512,
-                            thinking_config=genai.types.ThinkingConfig(
-                                thinking_budget=1024,
-                                include_thoughts=True,
-                            ),
-                        ),
-                    ),
-                    timeout=30,
-                )
+        response = await client.aio.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_message,
+            config=genai.types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                tools=[negotiate_tool],
+                tool_config=tool_config,
+                temperature=0.7,
+                max_output_tokens=512,
+            ),
+        )
 
-                # Extract thinking
-                thinking = ""
-                for part in response.candidates[0].content.parts:
-                    if getattr(part, "thought", False) and getattr(part, "text", None):
-                        thinking += part.text
+        if not response.candidates:
+            block = response.prompt_feedback
+            logger.warning(
+                "No candidates: prompt blocked (%s)",
+                block.block_reason if block else "unknown",
+            )
+            return None
 
-                for part in response.candidates[0].content.parts:
-                    if part.function_call and part.function_call.name == "negotiate":
-                        args = part.function_call.args
-                        action = str(args.get("action", "reject"))
-                        message = str(args.get("message", ""))[:500]
-                        offer = None
+        candidate = response.candidates[0]
+        fc_list = response.function_calls
+        if not fc_list:
+            logger.warning(
+                "No function call in response (finish_reason=%s)",
+                candidate.finish_reason,
+            )
+            return None
 
-                        if action == "propose" and args.get("offer"):
-                            raw = args["offer"]
-                            my_share = raw.get("my_share", {})
-                            their_share = raw.get("their_share", {})
-                            offer = {
-                                "my_share": {r: int(my_share.get(r, 0)) for r in RESOURCE_TYPES},
-                                "their_share": {r: int(their_share.get(r, 0)) for r in RESOURCE_TYPES},
-                            }
+        for fc in fc_list:
+            if fc.name == "negotiate" and fc.args:
+                args = fc.args
+                action = str(args.get("action", "reject"))
+                message = str(args.get("message", ""))[:500]
+                offer = None
 
-                        return {
-                            "action": action,
-                            "message": message,
-                            "reasoning": thinking[:1000] if thinking else None,
-                            "offer": offer,
-                        }
+                if action == "propose" and args.get("offer"):
+                    raw = args["offer"]
+                    my_share = raw.get("my_share", {})
+                    their_share = raw.get("their_share", {})
+                    offer = {
+                        "my_share": {r: int(my_share.get(r, 0)) for r in RESOURCE_TYPES},
+                        "their_share": {r: int(their_share.get(r, 0)) for r in RESOURCE_TYPES},
+                    }
 
-                logger.warning("No function call in response, attempt %d", attempt + 1)
-            except Exception as e:
-                logger.warning("API error on attempt %d: %s", attempt + 1, e)
+                return {
+                    "action": action,
+                    "message": message,
+                    "reasoning": None,
+                    "offer": offer,
+                }
 
-    return None
+        logger.warning(
+            "negotiate function call not found among %d calls", len(fc_list)
+        )
+        return None
