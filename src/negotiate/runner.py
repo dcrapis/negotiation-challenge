@@ -7,8 +7,6 @@ import statistics
 import time
 from typing import Optional, Callable
 
-from google import genai
-
 from .engine import (
     END_PROBABILITY,
     GUARANTEED_ROUNDS,
@@ -21,14 +19,15 @@ from .engine import (
     score_split,
     validate_offer,
 )
-from .inference import call_gemini
+from .inference import ProviderName, call_model, create_client
 
 
 async def run_game(
-    client: genai.Client,
+    client: object,
     scenario: dict,
     user_prompt: str,
     semaphore: asyncio.Semaphore,
+    provider: ProviderName = "gemini",
     user_goes_first: bool = True,
 ) -> dict:
     """Run one full negotiation game.
@@ -71,7 +70,7 @@ async def run_game(
     for round_num in range(1, effective_max_rounds + 1):
         # -- Player A turn --
         turn_prompt_a = build_turn_prompt(history, "A", round_num, pool)
-        result_a = await call_gemini(client, sys_a, turn_prompt_a, semaphore)
+        result_a = await call_model(client, sys_a, turn_prompt_a, semaphore, provider=provider)
 
         if result_a is None:
             result_a = {
@@ -119,7 +118,7 @@ async def run_game(
 
         # -- Player B turn --
         turn_prompt_b = build_turn_prompt(history, "B", round_num, pool)
-        result_b = await call_gemini(client, sys_b, turn_prompt_b, semaphore)
+        result_b = await call_model(client, sys_b, turn_prompt_b, semaphore, provider=provider)
 
         if result_b is None:
             result_b = {
@@ -193,6 +192,7 @@ async def run_evaluation(
     num_games: int = 10,
     seed: int | None = None,
     concurrency: int = 20,
+    provider: ProviderName = "gemini",
     on_game_complete: Callable[[int, int, dict], None] | None = None,
 ) -> dict:
     """Run a full evaluation: N games, collect stats.
@@ -201,12 +201,13 @@ async def run_evaluation(
         prompt: The strategy prompt text.
         num_games: Number of games to play.
         seed: Base seed for reproducibility. None = random.
-        concurrency: Max concurrent Gemini API calls.
+        concurrency: Max concurrent model API calls.
+        provider: Which backend to use for inference.
         on_game_complete: Callback(completed, total, game_result) for progress.
 
     Returns dict with keys: prompt, games, stats, elapsed.
     """
-    client = genai.Client()
+    client = create_client(provider)
     semaphore = asyncio.Semaphore(concurrency)
 
     if seed is None:
@@ -222,6 +223,7 @@ async def run_evaluation(
     tasks = [
         asyncio.ensure_future(
             run_game(client, scenario, prompt, semaphore,
+                     provider=provider,
                      user_goes_first=(i % 2 == 0))
         )
         for i, scenario in enumerate(scenarios)
@@ -256,6 +258,7 @@ async def run_evaluation(
 
     return {
         "prompt": prompt,
+        "provider": provider,
         "seed": seed,
         "games": results,
         "stats": stats,

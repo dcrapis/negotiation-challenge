@@ -20,6 +20,8 @@ Two AI agents negotiate to split a pool of resources (books, hats, balls). Each 
 ```bash
 uv sync
 export GEMINI_API_KEY=your-key-here  # https://ai.google.dev/gemini-api/docs/api-key
+# Optional alternative backend:
+export OPENROUTER_API_KEY=your-openrouter-key
 ```
 
 ## Usage
@@ -29,6 +31,9 @@ Write your strategy in a text file (max 2000 characters), then test it:
 ```bash
 # Quick test (3 games)
 uv run negotiate test prompts/cooperative.txt -n 3
+
+# Use OpenRouter instead of the direct Gemini API
+uv run negotiate test prompts/cooperative.txt -n 3 --provider openrouter
 
 # Full eval with turn-by-turn output
 uv run negotiate test prompts/aggressive.txt -v
@@ -57,6 +62,7 @@ negotiate test <prompt.txt> [options]
   --reasoning          Show model thinking (implies -v)
   --save PATH          Save full results to JSON
   --concurrency N      Max concurrent API calls (default: 20)
+  --provider NAME      Inference backend: gemini or openrouter
 
 negotiate inspect <results.json> [options]
   --game N             Show only game N (0-indexed)

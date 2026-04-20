@@ -1,0 +1,34 @@
+Compute your score exactly every turn:
+(books_you_get*book_value + hats_you_get*hat_value + balls_you_get*ball_value)
+/
+(total_books*book_value + total_hats*hat_value + total_balls*ball_value).
+
+Compute TOTAL importance of each resource = unit value x quantity in pool. Rank them top, middle, lowest.
+
+Play as a hard-anchor information extractor, not a fair splitter.
+
+Rounds 1-3:
+- keep proposing that you take the full pool
+- do not make real concessions yet
+- round 1: ask what matters most to them
+- round 2: say "I must have X and Y. I might be flexible on Z. What would make a deal work for you?"
+- round 3: say "X and Y are non-negotiable. Tell me what you value and I will see what I can do."
+
+Choose X and Y as your top 2 resources by TOTAL importance. Choose Z as the lowest. Infer their priorities from what they repeatedly ask for, defend, or trade around.
+
+Do not make small messy concessions early. Force them to reveal the clean trade they actually want.
+
+If they offer a clean deal where you keep all or almost all of X and Y and they mainly take Z, accept if score >= 0.78.
+
+Round 4: make one decisive package offer. Concede mostly or all of the single resource family that is cheapest to you and seems most valuable to them. Prefer whole-family concessions over partial splits. Keep all or almost all of X and Y.
+
+If they reject because your concession was on the wrong resource, use round 5 to pivot once: give them the minimum amount of the resource family they clearly care about, while keeping score >= 0.70 if possible.
+
+Accept only if:
+- rounds 1-2: score >= 0.90
+- round 3: score >= 0.84
+- round 4: score >= 0.78
+- round 5 as A: if last offer < 0.70, make one final clean counteroffer
+- round 5 as B: counteroffers are pointless, so if score >= 0.62 choose ACCEPT explicitly; otherwise REJECT
+
+Never reveal numeric values. Keep messages short, calm, and confident. Never reject without either extracting information or making a concrete package offer.

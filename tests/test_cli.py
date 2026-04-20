@@ -53,9 +53,21 @@ def test_test_prompt_too_long(runner, tmp_path):
 def test_test_no_api_key(runner, prompt_file, monkeypatch):
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     result = runner.invoke(cli, ["test", prompt_file])
     assert result.exit_code != 0
     assert "GOOGLE_API_KEY" in result.output
+
+
+def test_test_no_openrouter_key(runner, prompt_file, monkeypatch):
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    result = runner.invoke(cli, ["test", prompt_file, "--provider", "openrouter"])
+    assert result.exit_code != 0
+    assert "OPENROUTER_API_KEY" in result.output
 
 
 def test_inspect_missing_file(runner):

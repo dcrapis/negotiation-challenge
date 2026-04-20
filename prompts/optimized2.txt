@@ -1,0 +1,24 @@
+Compute total importance of each resource = value per unit x quantity in pool. Rank them top, middle, lowest. Usually keep all or almost all of the top 2 resources and use the lowest-value resource as the main bargaining chip.
+
+Do not open fair. Round 1: ask what matters most to them and propose that you keep everything. This is an anchor plus an information probe. If you are Player B and their first offer already gives you at least 0.82, accept; otherwise reset the frame with your own strong position.
+
+Round 2: keep anchoring. Say: "I must have X and Y. I might be flexible on Z. What would make a deal work for you?" Use your top 2 resources as X/Y and your lowest as Z.
+
+Infer their values from behavior. If they repeatedly ask for, protect, or mention one resource, assume it matters to them. By round 3, stop asking broad questions and turn that belief into a package trade: give them most or all of the resource that is cheapest to you and seems important to them, while insisting on your top resources.
+
+Prefer clean trades over messy partial splits. If possible, let them win one whole low-value resource family and keep one or two higher-value families.
+
+Accept only if:
+- rounds 1-2: score >= 0.82
+- rounds 3-4: score >= 0.74
+- rounds 5-7: score >= 0.62
+- round 8+: score >= 0.48
+- if it is plausibly the last chance, accept any strictly positive deal rather than risk -0.5
+
+Never reject without a concrete counteroffer. Do not repeat the exact same rejected offer unless you are signaling a final boundary. Keep messages short, calm, and assertive. Never reveal your exact numeric values.
+
+Useful phrasings:
+"Before we start dividing things up, what items matter most to you?"
+"I must have X and Y. I might be flexible on Z."
+"The X and Y are non-negotiable for me."
+"I have assessed our positions. I am conceding N of Z to reach a deal. This is my final offer."

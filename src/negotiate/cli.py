@@ -111,12 +111,20 @@ def cli():
 @click.option("--reasoning", is_flag=True, help="Show model thinking (implies --verbose).")
 @click.option("--save", "save_path", type=click.Path(), default=None, help="Save full results to JSON.")
 @click.option("--concurrency", default=20, show_default=True, help="Max concurrent API calls.")
-def test(prompt, games, seed, verbose, reasoning, save_path, concurrency):
+@click.option(
+    "--provider",
+    type=click.Choice(["gemini", "openrouter"], case_sensitive=False),
+    default="gemini",
+    show_default=True,
+    help="Inference backend to use.",
+)
+def test(prompt, games, seed, verbose, reasoning, save_path, concurrency, provider):
     """Run your strategy prompt against the baseline.
 
     PROMPT is a path to a text file containing your strategy (max 2000 chars).
     """
     prompt_text = Path(prompt).read_text().strip()
+    provider = provider.lower()
     if not prompt_text:
         console.print("[red]Error:[/red] Prompt file is empty.")
         sys.exit(1)
@@ -125,15 +133,24 @@ def test(prompt, games, seed, verbose, reasoning, save_path, concurrency):
         sys.exit(1)
 
     console.print(f"[bold]Strategy:[/bold] {Path(prompt).name} ({len(prompt_text)} chars)")
-    console.print(f"[bold]Games:[/bold] {games}  [bold]Seed:[/bold] {seed or 'random'}")
+    console.print(
+        f"[bold]Games:[/bold] {games}  [bold]Seed:[/bold] {seed or 'random'}  [bold]Provider:[/bold] {provider}"
+    )
     console.print()
 
-    if not os.environ.get("GOOGLE_API_KEY") and not os.environ.get("GEMINI_API_KEY"):
-        console.print(
-            "[red]Error:[/red] Set GOOGLE_API_KEY (or GEMINI_API_KEY) env var.\n"
-            "  Get one at https://ai.google.dev/gemini-api/docs/api-key"
-        )
-        sys.exit(1)
+    if provider == "gemini":
+        if not os.environ.get("GOOGLE_API_KEY") and not os.environ.get("GEMINI_API_KEY"):
+            console.print(
+                "[red]Error:[/red] Set GOOGLE_API_KEY (or GEMINI_API_KEY) env var.\n"
+                "  Get one at https://ai.google.dev/gemini-api/docs/api-key"
+            )
+            sys.exit(1)
+    elif provider == "openrouter":
+        if not os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+            console.print(
+                "[red]Error:[/red] Set OPENROUTER_API_KEY (or OPENAI_API_KEY) env var for OpenRouter."
+            )
+            sys.exit(1)
 
     if reasoning:
         verbose = True
@@ -155,6 +172,7 @@ def test(prompt, games, seed, verbose, reasoning, save_path, concurrency):
             num_games=games,
             seed=seed,
             concurrency=concurrency,
+            provider=provider,
             on_game_complete=on_progress,
         )
     )

@@ -1,0 +1,29 @@
+Compute your score exactly every turn:
+(books_you_get*book_value + hats_you_get*hat_value + balls_you_get*ball_value)
+/
+(total_books*book_value + total_hats*hat_value + total_balls*ball_value).
+Use this score for every accept/reject/propose decision.
+
+Rank resources by TOTAL importance to you: value per unit x quantity in pool. Call them top, middle, lowest. Usually keep almost all of the top 2 and use the lowest as the main bargaining chip.
+
+Open aggressively. If you move first, ask what matters most to them and propose that you keep everything. If you move second and their first offer gives score >= 0.82, accept; otherwise reset the frame with your own strong anchor.
+
+Round 2: say "I must have X and Y. I might be flexible on Z." Use X/Y for your top 2 and Z for your lowest. Infer their values from what they repeatedly ask for or protect.
+
+From round 3 onward, stop repeating the same anchor. If they repeat a similar offer twice, treat that as a boundary and pivot to a closeable package trade.
+
+Concede intelligently: maximize value to them per point you give up. Give mostly resources that are cheap for you and seem important to them. Do not give up high-value resources just to keep lots of low-value items. Prefer clean trades over messy splits.
+
+Target your own score when proposing:
+- round 1: 0.95-1.00
+- round 2: 0.85-0.92
+- rounds 3-4: 0.75-0.85
+- round 5 as A: 0.62-0.72
+
+Accept only if your score is:
+- rounds 1-2: >= 0.82
+- rounds 3-4: >= 0.74
+- round 5 as A: if last offer < 0.62, do not accept; make one final counter built around their revealed priority
+- round 5 as B: this is effectively your last decision, so do not make a fresh counteroffer; accept if >= 0.52
+
+Never reject without a concrete counteroffer except when you are B in round 5. Keep messages short, calm, and assertive. Never reveal your exact numeric values.

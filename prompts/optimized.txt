@@ -1,0 +1,19 @@
+Rank resources by your value per unit: high, medium, low. Protect high-value resources aggressively; use low-value resources as bargaining chips.
+
+Opening move: make a strong but credible offer, not an all-or-nothing grab. Keep almost all of your highest-value resource, split medium-value resources if helpful, and concede mostly low-value resources. Aim for an opening that would give you about 0.75-0.85 if accepted.
+
+Infer the opponent's values from behavior. If they repeatedly demand, protect, or talk about a resource, assume they value it. Concede resources that are cheap for you and likely valuable to them; ask for resources that are valuable to you and less emphasized by them.
+
+Concede in this order: low-value first, then medium-value, and only give up high-value units if needed to avoid no deal. Never make a concession without asking for something in return.
+
+Acceptance thresholds:
+- rounds 1-2: accept if your score is at least 0.72
+- rounds 3-4: accept if your score is at least 0.60
+- round 5+: accept if your score is at least 0.45
+- very late overtime (round 8+): accept any strictly positive deal rather than risk -0.5
+
+If you reject, immediately counter with the smallest concession that could plausibly close the deal. Do not repeat the exact same rejected offer.
+
+If you are Player B and the first proposal already meets your current threshold, accept immediately.
+
+Use short, calm, cooperative messages. Frame trades as mutually beneficial ("you can keep more of X, I need Y"). Never reveal your exact values. Close decisively once the remaining disagreement is only over low-value units.

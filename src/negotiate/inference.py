@@ -1,6 +1,11 @@
-"""Gemini API integration for the negotiation challenge.
+"""Model API integration for the negotiation challenge.
 
-Mirrors the production behavior: function-calling with the `negotiate` tool.
+Supports:
+- Direct Gemini API via `google-genai`
+- OpenRouter via an OpenAI-compatible HTTP route
+
+The Gemini path mirrors production behavior: function-calling with the
+`negotiate` tool.
 
 Note: thinking_config is intentionally omitted. Combining Gemini's thinking
 mode with function calling triggers a known model-side bug where the API
@@ -12,8 +17,13 @@ per-call latency by ~3-6x.
 """
 
 import asyncio
+import json
 import logging
-from typing import Optional
+import os
+import time
+import urllib.error
+import urllib.request
+from typing import Literal, Optional
 
 from google import genai
 
@@ -21,7 +31,11 @@ from .engine import RESOURCE_TYPES
 
 logger = logging.getLogger(__name__)
 
+ProviderName = Literal["gemini", "openrouter"]
+
 GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+OPENROUTER_MODEL = f"google/{GEMINI_MODEL}"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def _make_negotiate_tool():
@@ -89,6 +103,18 @@ def _get_tool_and_config():
             function_calling_config=genai.types.FunctionCallingConfig(mode="ANY")
         )
     return _negotiate_tool, _tool_config
+
+
+def create_client(provider: ProviderName = "gemini") -> object:
+    """Create a provider-specific client object.
+
+    OpenRouter uses direct HTTP requests, so there is no persistent SDK client.
+    """
+    if provider == "gemini":
+        return genai.Client()
+    if provider == "openrouter":
+        return None
+    raise ValueError(f"Unsupported provider: {provider}")
 
 
 async def call_gemini(
@@ -159,3 +185,172 @@ async def call_gemini(
             "negotiate function call not found among %d calls", len(fc_list)
         )
         return None
+
+
+def _make_openrouter_negotiate_tool() -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": "negotiate",
+            "description": "Submit your negotiation move.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Your public message to the other player",
+                    },
+                    "action": {
+                        "type": "string",
+                        "description": "Your action this turn",
+                        "enum": ["propose", "accept", "reject"],
+                    },
+                    "offer": {
+                        "type": "object",
+                        "description": "Required when action is 'propose'. The proposed resource split.",
+                        "properties": {
+                            "my_share": {
+                                "type": "object",
+                                "description": "Resources you keep",
+                                "properties": {r: {"type": "integer"} for r in RESOURCE_TYPES},
+                                "required": RESOURCE_TYPES,
+                            },
+                            "their_share": {
+                                "type": "object",
+                                "description": "Resources the other player gets",
+                                "properties": {r: {"type": "integer"} for r in RESOURCE_TYPES},
+                                "required": RESOURCE_TYPES,
+                            },
+                        },
+                        "required": ["my_share", "their_share"],
+                    },
+                },
+                "required": ["message", "action"],
+            },
+        },
+    }
+
+
+def _openrouter_api_key() -> str:
+    key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not key:
+        raise RuntimeError("Set OPENROUTER_API_KEY (or OPENAI_API_KEY) for OpenRouter.")
+    return key
+
+
+def _sync_call_openrouter(system_prompt: str, user_message: str) -> dict:
+    payload = {
+        "model": OPENROUTER_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "tools": [_make_openrouter_negotiate_tool()],
+        "tool_choice": {"type": "function", "function": {"name": "negotiate"}},
+        "temperature": 0.7,
+        "max_tokens": 512,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {_openrouter_api_key()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "negotiation-challenge",
+    }
+
+    last_error: Exception | None = None
+    for attempt in range(3):
+        req = urllib.request.Request(
+            OPENROUTER_API_URL,
+            data=json.dumps(payload).encode(),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as err:
+            body = err.read().decode(errors="replace")
+            if err.code in {429, 502, 503, 504} and attempt < 2:
+                time.sleep(1.0 * (2**attempt))
+                continue
+            raise RuntimeError(f"OpenRouter HTTP {err.code}: {body}") from err
+        except Exception as err:  # pragma: no cover - network failure path
+            last_error = err
+            if attempt < 2:
+                time.sleep(1.0 * (2**attempt))
+                continue
+            raise
+    raise RuntimeError(f"OpenRouter request failed: {last_error}")
+
+
+async def call_openrouter(
+    _client: object,
+    system_prompt: str,
+    user_message: str,
+    semaphore: asyncio.Semaphore,
+) -> Optional[dict]:
+    """One OpenRouter API call -> parsed negotiate tool response."""
+    async with semaphore:
+        response = await asyncio.to_thread(_sync_call_openrouter, system_prompt, user_message)
+
+    choices = response.get("choices", [])
+    if not choices:
+        logger.warning("No choices in OpenRouter response")
+        return None
+
+    message_obj = choices[0].get("message", {})
+    tool_calls = message_obj.get("tool_calls") or []
+    if not tool_calls:
+        finish_reason = choices[0].get("finish_reason")
+        logger.warning("No tool call in OpenRouter response (finish_reason=%s)", finish_reason)
+        return None
+
+    for tool_call in tool_calls:
+        function = tool_call.get("function", {})
+        if function.get("name") != "negotiate":
+            continue
+        raw_args = function.get("arguments", "{}")
+        try:
+            args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
+        except Exception:
+            logger.warning("Malformed function arguments from OpenRouter: %r", raw_args)
+            return None
+
+        action = str(args.get("action", "reject"))
+        message = str(args.get("message", ""))[:500]
+        offer = None
+
+        if action == "propose" and args.get("offer"):
+            raw = args["offer"]
+            my_share = raw.get("my_share", {})
+            their_share = raw.get("their_share", {})
+            offer = {
+                "my_share": {r: int(my_share.get(r, 0)) for r in RESOURCE_TYPES},
+                "their_share": {r: int(their_share.get(r, 0)) for r in RESOURCE_TYPES},
+            }
+
+        return {
+            "action": action,
+            "message": message,
+            "reasoning": message_obj.get("reasoning"),
+            "offer": offer,
+        }
+
+    logger.warning("negotiate tool call not found in OpenRouter response")
+    return None
+
+
+async def call_model(
+    client: object,
+    system_prompt: str,
+    user_message: str,
+    semaphore: asyncio.Semaphore,
+    provider: ProviderName = "gemini",
+) -> Optional[dict]:
+    """Dispatch one negotiation turn to the selected provider."""
+    if provider == "gemini":
+        return await call_gemini(client, system_prompt, user_message, semaphore)
+    if provider == "openrouter":
+        return await call_openrouter(client, system_prompt, user_message, semaphore)
+    raise ValueError(f"Unsupported provider: {provider}")

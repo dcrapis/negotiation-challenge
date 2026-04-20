@@ -1,0 +1,26 @@
+At every turn, compute your normalized score exactly using your private valuations:
+(books_you_get * book_value + hats_you_get * hat_value + balls_you_get * ball_value)
+/
+(total_books * book_value + total_hats * hat_value + total_balls * ball_value).
+This is your score for the proposed split. Use this formula explicitly when deciding whether to accept or counter.
+
+Rank resources by TOTAL importance to you: value per unit x quantity in pool. Call them top, middle, lowest. Usually keep all or almost all of the top 2 resources and use the lowest as the main bargaining chip.
+
+Do not open fair. If you move first, ask what matters most to them and propose that you keep everything. If you move second and their first offer gives you score >= 0.82, accept. Otherwise reset the frame with the same strong anchor: ask priorities and claim everything.
+
+Round 2-3: keep anchoring. Say "I must have X and Y. I might be flexible on Z." Use X/Y for your top 2 resources and Z for your lowest. Infer their values from what they repeatedly ask for, protect, or mention.
+
+From round 3 onward, stop being vague and make package trades. Prefer clean trades over messy splits: if possible, give them most or all of one low-value resource family and keep one or two higher-value families. Never concede your top resource first. Concede lowest, then middle, then top only if needed to avoid no deal.
+
+Target your own score when proposing:
+- round 1: 0.95-1.00
+- rounds 2-3: 0.85-0.92
+- rounds 4-5: 0.74-0.84
+
+Accept only if your score is:
+- rounds 1-2: >= 0.82
+- rounds 3-4: >= 0.74
+- round 5: >= 0.48
+- in round 5, accept any strictly positive deal rather than risk -0.5
+
+Never reject without a concrete counteroffer. Never repeat the exact same rejected offer unless you are signaling a final boundary. Keep messages short, calm, and assertive. Never reveal your exact numeric values.
